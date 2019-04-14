@@ -394,13 +394,14 @@ int sftp_get_file(char *fname, char *outfname, int recurse, int restart)
     }
 
     if (!file) {
-	printf("local: unable to open %s\n", outfname);
-
+        /*
+        printf("local: unable to open %s\n", outfname);
         req = fxp_close_send(fh);
         pktin = sftp_wait_for_reply(req);
-	fxp_close_recv(pktin, req);
-
-	return 0;
+        fxp_close_recv(pktin, req);
+        return 0; */
+        /* create new file if not existed */
+        file = open_new_file(outfname, GET_PERMISSIONS(attrs));
     }
 
     if (restart) {
@@ -2319,6 +2320,134 @@ struct sftp_command *sftp_getcmd(FILE *fp, int mode, int modeflags)
     return cmd;
 }
 
+/* ----------------------------------------------------------------------
+ * Command line reading and parsing.
+ * similar to sftp_getcmd(), from char* instend of FILE*.
+ */
+struct sftp_command *sftp_getcmd_from_string(char *command, int mode, int modeflags)
+{
+    char *line;
+    struct sftp_command *cmd;
+    char *p, *q, *r;
+    int quoting;
+
+    cmd = snew(struct sftp_command);
+    cmd->words = NULL;
+    cmd->nwords = 0;
+    cmd->wordssize = 0;
+
+    line = NULL;
+
+    if (command) {
+	if (modeflags & 1)
+	    printf("psftp> ");
+	line = command /*fgetline(fp)*/;
+    } else {
+	line = ssh_sftp_get_cmdline("psftp> ", back == NULL);
+    }
+
+    if (!line || !*line) {
+	cmd->obey = sftp_cmd_quit;
+	if ((mode == 0) || (modeflags & 1))
+	    printf("quit\n");
+        sfree(line);
+	return cmd;		       /* eof */
+    }
+
+    line[strcspn(line, "\r\n")] = '\0';
+
+    if (modeflags & 1) {
+	printf("%s\n", line);
+    }
+
+    p = line;
+    while (*p && (*p == ' ' || *p == '\t'))
+	p++;
+
+    if (*p == '!') {
+	/*
+	 * Special case: the ! command. This is always parsed as
+	 * exactly two words: one containing the !, and the second
+	 * containing everything else on the line.
+	 */
+	cmd->nwords = cmd->wordssize = 2;
+	cmd->words = sresize(cmd->words, cmd->wordssize, char *);
+	cmd->words[0] = dupstr("!");
+	cmd->words[1] = dupstr(p+1);
+    } else if (*p == '#') {
+	/*
+	 * Special case: comment. Entire line is ignored.
+	 */
+	cmd->nwords = cmd->wordssize = 0;
+    } else {
+
+	/*
+	 * Parse the command line into words. The syntax is:
+	 *  - double quotes are removed, but cause spaces within to be
+	 *    treated as non-separating.
+	 *  - a double-doublequote pair is a literal double quote, inside
+	 *    _or_ outside quotes. Like this:
+	 *
+	 *      firstword "second word" "this has ""quotes"" in" and""this""
+	 *
+	 * becomes
+	 *
+	 *      >firstword<
+	 *      >second word<
+	 *      >this has "quotes" in<
+	 *      >and"this"<
+	 */
+	while (1) {
+	    /* skip whitespace */
+	    while (*p && (*p == ' ' || *p == '\t'))
+		p++;
+            /* terminate loop */
+            if (!*p)
+                break;
+	    /* mark start of word */
+	    q = r = p;		       /* q sits at start, r writes word */
+	    quoting = 0;
+	    while (*p) {
+		if (!quoting && (*p == ' ' || *p == '\t'))
+		    break;		       /* reached end of word */
+		else if (*p == '"' && p[1] == '"')
+		    p += 2, *r++ = '"';    /* a literal quote */
+		else if (*p == '"')
+		    p++, quoting = !quoting;
+		else
+		    *r++ = *p++;
+	    }
+	    if (*p)
+		p++;		       /* skip over the whitespace */
+	    *r = '\0';
+	    if (cmd->nwords >= cmd->wordssize) {
+		cmd->wordssize = cmd->nwords + 16;
+		cmd->words = sresize(cmd->words, cmd->wordssize, char *);
+	    }
+	    cmd->words[cmd->nwords++] = dupstr(q);
+	}
+    }
+
+    sfree(line);
+
+    /*
+     * Now parse the first word and assign a function.
+     */
+
+    if (cmd->nwords == 0)
+	cmd->obey = sftp_cmd_null;
+    else {
+	const struct sftp_cmd_lookup *lookup;
+	lookup = lookup_command(cmd->words[0]);
+	if (!lookup)
+	    cmd->obey = sftp_cmd_unknown;
+	else
+	    cmd->obey = lookup->obey;
+    }
+
+    return cmd;
+}
+
 static int do_sftp_init(void)
 {
     struct sftp_packet *pktin;
@@ -2639,7 +2768,7 @@ static void usage(void)
 {
     printf("PuTTY Secure File Transfer (SFTP) client\n");
     printf("%s\n", ver);
-    printf("Usage: psftp [options] [user@]host\n");
+    printf("Usage: psftp [options] [user@]host [command]\n");
     printf("Options:\n");
     printf("  -V        print version information and exit\n");
     printf("  -pgpfp    print PGP key fingerprints and exit\n");
@@ -2897,6 +3026,10 @@ int psftp_main(int argc, char *argv[])
     int mode = 0;
     int modeflags = 0;
     char *batchfile = NULL;
+    
+    int cmdlen = 0;
+    int cmdsize = 0;
+    char *command = NULL;
 
     flags = FLAG_STDERR | FLAG_INTERACTIVE
 #ifdef FLAG_SYNCAGENT
@@ -2916,8 +3049,18 @@ int psftp_main(int argc, char *argv[])
     for (i = 1; i < argc; i++) {
 	int ret;
 	if (argv[i][0] != '-') {
-            if (userhost)
-                usage();
+            if (userhost) {
+                /*usage();*/
+                /* it's optional 'command' */
+                for(char *p = argv[i]; *p != '\0'; p++) {
+                    if (cmdlen >= cmdsize) {
+                        cmdsize = cmdlen + 512;
+                        command = sresize(command, cmdsize, char);
+                    }
+                    command[cmdlen++] = *p;
+                }
+                command[cmdlen++] = ' ';
+            }
             else
                 userhost = dupstr(argv[i]);
 	    continue;
@@ -2966,10 +3109,30 @@ int psftp_main(int argc, char *argv[])
      * otherwise been specified, pop it in `userhost' so that
      * `psftp -load sessname' is sufficient to start a session.
      */
-    if (!userhost && conf_get_str(conf, CONF_host)[0] != '\0') {
-	userhost = dupstr(conf_get_str(conf, CONF_host));
-    }
+   if(command != NULL) {
+       command[cmdlen++] = '\0';
+   }
 
+    /* 'userhost' might be part of 'command' in command line arguments */
+    if (/*!userhost &&*/ conf_get_str(conf, CONF_host)[0] != '\0') {
+        if(userhost) {
+            int uhlen = strlen(userhost);
+            if(cmdlen + uhlen + 2 >= cmdsize) {
+                cmdsize = cmdlen + uhlen + 2; /* space+null */
+                command = sresize(command, cmdsize, char);
+            }
+            for(int i = cmdlen-1; i >= 0; i--) {
+                command[i+uhlen+1] = command[i];
+            }
+            for(int i = 0; i < uhlen; i++) {
+                command[i] = userhost[i];
+            }
+            command[uhlen] = ' ';
+        }
+	      
+	      userhost = dupstr(conf_get_str(conf, CONF_host));
+    }
+    
     /*
      * If a user@host string has already been provided, connect to
      * it now.
@@ -2986,8 +3149,14 @@ int psftp_main(int argc, char *argv[])
 	printf("psftp: no hostname specified; use \"open host.name\""
 	       " to connect\n");
     }
-
-    ret = do_sftp(mode, modeflags, batchfile);
+    if(command) {
+        /* 'command' is from command line argument. handled by way similar to batch file. */
+        struct sftp_command *cmd;
+        cmd = sftp_getcmd_from_string(command, 1, 0);
+        ret = cmd->obey(cmd);
+    } else {
+        ret = do_sftp(mode, modeflags, batchfile);
+    }
 
     if (back != NULL && back->connected(backhandle)) {
 	char ch;
