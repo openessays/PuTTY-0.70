@@ -950,7 +950,7 @@ void load_open_settings(void *sesskey, Conf *conf)
     gppi(sesskey, "NoMouseReporting", 0, conf, CONF_no_mouse_rep);
     gppi(sesskey, "NoRemoteResize", 0, conf, CONF_no_remote_resize);
     gppi(sesskey, "NoAltScreen", 0, conf, CONF_no_alt_screen);
-    gppi(sesskey, "NoRemoteWinTitle", 0, conf, CONF_no_remote_wintitle);
+    gppi(sesskey, "NoRemoteWinTitle", 1, conf, CONF_no_remote_wintitle);
     gppi(sesskey, "NoRemoteClearScroll", 0, conf, CONF_no_remote_clearscroll);
     {
 	/* Backward compatibility */
