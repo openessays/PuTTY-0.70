@@ -616,16 +616,25 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 	    host += strspn(host, " \t");
 
 	    /*
-	     * See if host is of the form user@host, and separate
-	     * out the username if so.
+	     * See if host is of the form user[:password]@host, and separate
+	     * out the username and password if so.
 	     */
 	    if (host[0] != '\0') {
-		char *atsign = strrchr(host, '@');
-		if (atsign) {
-		    *atsign = '\0';
-		    conf_set_str(conf, CONF_username, host);
-		    host = atsign + 1;
-		}
+	        char *colon = strchr(host, ':');
+	        char *atsign = strrchr(host, '@');
+	        if (colon && atsign) {
+	            *colon = '\0';
+	            conf_set_str(conf, CONF_username, host);
+	            host = colon + 1;
+	            *atsign = '\0';
+	            conf_set_str(conf, CONF_password, host);
+	            host = atsign + 1;
+	        }
+	        else if (atsign) {
+	            *atsign = '\0';
+	            conf_set_str(conf, CONF_username, host);
+	            host = atsign + 1;
+	        }
 	    }
 
             /*

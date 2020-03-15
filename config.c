@@ -1997,6 +1997,13 @@ void setup_config_box(struct controlbox *b, int midsession,
 	    ctrl_editbox(s, "Auto-login username", 'u', 50,
 			 HELPCTX(connection_username),
 			 conf_editbox_handler, I(CONF_username), I(1));
+	    /* add auto-login password --begin-- */
+	    c = ctrl_editbox(s, "Auto-login password", 'w', 50,
+	        HELPCTX(connection_password),
+	        conf_editbox_handler, I(CONF_password), I(1));
+	    /* input type is password */
+	    c->editbox.password = 1;
+	    /* add auto-login password --end--*/
 	    {
 		/* We assume the local username is sufficiently stable
 		 * to include on the dialog box. */

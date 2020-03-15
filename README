@@ -1,5 +1,9 @@
 Customize based on version 0.70. Below is the official README.
 
+2020-03-15:
+support auto-login password based on https://github.com/YYGCui/putty-improvement
+password can be specified as (1) username:password@hostname or (2) Connection->Data->"Auto-login password"
+
 ===================================================================
 This is the README for the source archive of PuTTY, a free Windows
 and Unix Telnet and SSH client.

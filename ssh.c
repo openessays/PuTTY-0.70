@@ -9553,28 +9553,28 @@ static void do_ssh2_authconn(Ssh ssh, const unsigned char *in, int inlen,
 	    add_prompt(s->cur_prompt, dupstr("login as: "), TRUE); 
 	    ret = get_userpass_input(s->cur_prompt, NULL, 0);
 	    while (ret < 0) {
-		ssh->send_ok = 1;
-		crWaitUntilV(!pktin);
-		ret = get_userpass_input(s->cur_prompt, in, inlen);
-		ssh->send_ok = 0;
+	        ssh->send_ok = 1;
+	        crWaitUntilV(!pktin);
+	        ret = get_userpass_input(s->cur_prompt, in, inlen);
+	        ssh->send_ok = 0;
 	    }
 	    if (!ret) {
-		/*
-		 * get_userpass_input() failed to get a username.
-		 * Terminate.
-		 */
-		free_prompts(s->cur_prompt);
-		ssh_disconnect(ssh, "No username provided", NULL, 0, TRUE);
-		crStopV;
+	        /*
+	        * get_userpass_input() failed to get a username.
+	        * Terminate.
+	        */
+	        free_prompts(s->cur_prompt);
+	        ssh_disconnect(ssh, "No username provided", NULL, 0, TRUE);
+	        crStopV;
 	    }
 	    ssh->username = dupstr(s->cur_prompt->prompts[0]->result);
 	    free_prompts(s->cur_prompt);
 	} else {
 	    char *stuff;
 	    if ((flags & FLAG_VERBOSE) || (flags & FLAG_INTERACTIVE)) {
-		stuff = dupprintf("Using username \"%s\".\r\n", ssh->username);
-		c_write_str(ssh, stuff);
-		sfree(stuff);
+	        stuff = dupprintf("Using username \"%s\".\r\n", ssh->username);
+	        c_write_str(ssh, stuff);
+	        sfree(stuff);
 	    }
 	}
 	s->got_username = TRUE;
@@ -10454,12 +10454,16 @@ static void do_ssh2_authconn(Ssh ssh, const unsigned char *in, int inlen,
 						    ssh->savedhost),
 			   FALSE);
 
-		ret = get_userpass_input(s->cur_prompt, NULL, 0);
-		while (ret < 0) {
-		    ssh->send_ok = 1;
-		    crWaitUntilV(!pktin);
-		    ret = get_userpass_input(s->cur_prompt, in, inlen);
-		    ssh->send_ok = 0;
+		if(get_remote_password(ssh->conf) == NULL) {
+		    ret = get_userpass_input(s->cur_prompt, NULL, 0);
+		    while (ret < 0) {
+		        ssh->send_ok = 1;
+		        crWaitUntilV(!pktin);
+		        ret = get_userpass_input(s->cur_prompt, in, inlen);
+		        ssh->send_ok = 0;
+		    }
+		} else {
+		    ret = 1;
 		}
 		if (!ret) {
 		    /*
@@ -10475,7 +10479,11 @@ static void do_ssh2_authconn(Ssh ssh, const unsigned char *in, int inlen,
 		 * Squirrel away the password. (We may need it later if
 		 * asked to change it.)
 		 */
-		s->password = dupstr(s->cur_prompt->prompts[0]->result);
+		if(get_remote_password(ssh->conf) == NULL) {
+		    s->password = dupstr(s->cur_prompt->prompts[0]->result);
+		} else {
+		    s->password = dupstr(get_remote_password(ssh->conf));
+		}
 		free_prompts(s->cur_prompt);
 
 		/*

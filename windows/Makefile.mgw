@@ -114,8 +114,8 @@
 # updated:
 # C:\x86_64-8.1.0-release-posix-sjlj-rt_v6-rev0\mingw64\bin\mingw32-make.exe -f Makefile.mgw
 
-CC = C:\x86_64-8.1.0-release-posix-sjlj-rt_v6-rev0\mingw64\bin\gcc.exe
-RC = C:\x86_64-8.1.0-release-posix-sjlj-rt_v6-rev0\mingw64\bin\windres.exe
+CC = C:\gcc\bin\gcc.exe
+RC = C:\gcc\bin\windres.exe
 # Uncomment the following two lines to compile under Winelib
 # CC = winegcc
 # RC = wrc
