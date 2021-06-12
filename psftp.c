@@ -1283,7 +1283,7 @@ int sftp_cmd_get(struct sftp_command *cmd)
 }
 int sftp_cmd_mget(struct sftp_command *cmd)
 {
-    return sftp_general_get(cmd, 0, 1);
+    return sftp_general_get(cmd, 1, 1);
 }
 int sftp_cmd_reget(struct sftp_command *cmd)
 {
