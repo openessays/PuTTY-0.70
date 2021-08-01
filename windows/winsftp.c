@@ -98,8 +98,16 @@ RFile *open_existing_file(const char *name, uint64 *size,
     HANDLE h;
     RFile *ret;
 
-    h = CreateFile(name, GENERIC_READ, FILE_SHARE_READ, NULL,
-		   OPEN_EXISTING, 0, 0);
+    /* utf-8 to utf-16 */
+    char *nameUTF16 = NULL;
+    int len = MultiByteToWideChar(CP_UTF8, 0, name, -1, NULL, 0);
+    if(len > 0) {
+        nameUTF16 = malloc(len * sizeof(wchar_t));
+        MultiByteToWideChar(CP_UTF8, 0, name, -1, nameUTF16, len);
+    }
+    /* open file */
+    h = CreateFileW(nameUTF16, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0);
+    free(nameUTF16);
     if (h == INVALID_HANDLE_VALUE)
 	return NULL;
 
@@ -154,8 +162,16 @@ WFile *open_new_file(const char *name, long perms)
     HANDLE h;
     WFile *ret;
 
-    h = CreateFile(name, GENERIC_WRITE, 0, NULL,
-		   CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
+    /* utf-8 to utf-16 */
+    char *nameUTF16 = NULL;
+    int len = MultiByteToWideChar(CP_UTF8, 0, name, -1, NULL, 0);
+    if(len > 0) {
+        nameUTF16 = malloc(len * sizeof(wchar_t));
+        MultiByteToWideChar(CP_UTF8, 0, name, -1, nameUTF16, len);
+    }
+    /* open file */
+    h = CreateFileW(nameUTF16, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
+    free(nameUTF16);
     if (h == INVALID_HANDLE_VALUE)
 	return NULL;
 
@@ -170,8 +186,16 @@ WFile *open_existing_wfile(const char *name, uint64 *size)
     HANDLE h;
     WFile *ret;
 
-    h = CreateFile(name, GENERIC_WRITE, FILE_SHARE_READ, NULL,
-		   OPEN_EXISTING, 0, 0);
+    /* utf-8 to utf-16 */
+    char *nameUTF16 = NULL;
+    int len = MultiByteToWideChar(CP_UTF8, 0, name, -1, NULL, 0);
+    if(len > 0) {
+        nameUTF16 = malloc(len * sizeof(wchar_t));
+        MultiByteToWideChar(CP_UTF8, 0, name, -1, nameUTF16, len);
+    }
+    /* open file */
+    h = CreateFileW(nameUTF16, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0);
+    free(nameUTF16);
     if (h == INVALID_HANDLE_VALUE)
 	return NULL;
 
@@ -384,11 +408,20 @@ char *stripslashes(const char *str, int local)
 WildcardMatcher *begin_wildcard_matching(const char *name)
 {
     HANDLE h;
-    WIN32_FIND_DATA fdat;
+    WIN32_FIND_DATAW fdat;
     WildcardMatcher *ret;
     char *last;
 
-    h = FindFirstFile(name, &fdat);
+    /* utf-8 to utf-16 */
+    char *nameUTF16 = NULL;
+    int len = MultiByteToWideChar(CP_UTF8, 0, name, -1, NULL, 0);
+    if(len > 0) {
+        nameUTF16 = malloc(len * sizeof(wchar_t));
+        MultiByteToWideChar(CP_UTF8, 0, name, -1, nameUTF16, len);
+    }
+    /* unicode version instead of ANSI version */
+    h = FindFirstFileW(nameUTF16, &fdat);
+    free(nameUTF16);
     if (h == INVALID_HANDLE_VALUE)
 	return NULL;
 
@@ -397,31 +430,45 @@ WildcardMatcher *begin_wildcard_matching(const char *name)
     ret->srcpath = dupstr(name);
     last = stripslashes(ret->srcpath, 1);
     *last = '\0';
-    if (fdat.cFileName[0] == '.' &&
-	(fdat.cFileName[1] == '\0' ||
-	 (fdat.cFileName[1] == '.' && fdat.cFileName[2] == '\0')))
-	ret->name = NULL;
-    else
-	ret->name = dupcat(ret->srcpath, fdat.cFileName, NULL);
-
+    /* utf-16 to utf-8 */
+    char *nameUTF8 = NULL;
+    len = WideCharToMultiByte(CP_UTF8, 0, fdat.cFileName, -1, NULL, 0, NULL, NULL);
+    if(len > 0) {
+        nameUTF8 = malloc(len);
+        WideCharToMultiByte(CP_UTF8, 0, fdat.cFileName, -1, nameUTF8, len, NULL, NULL);
+    }
+    if (nameUTF8[0] == '.' && (nameUTF8[1] == '\0' || (nameUTF8[1] == '.' && nameUTF8[2] == '\0'))) {
+        ret->name = NULL;
+    }
+    else {
+        ret->name = dupcat(ret->srcpath, nameUTF8, NULL);
+    }
+    free(nameUTF8);
     return ret;
 }
 
 char *wildcard_get_filename(WildcardMatcher *dir)
 {
     while (!dir->name) {
-	WIN32_FIND_DATA fdat;
-	int ok = FindNextFile(dir->h, &fdat);
-
-	if (!ok)
-	    return NULL;
-
-	if (fdat.cFileName[0] == '.' &&
-	    (fdat.cFileName[1] == '\0' ||
-	     (fdat.cFileName[1] == '.' && fdat.cFileName[2] == '\0')))
-	    dir->name = NULL;
-	else
-	    dir->name = dupcat(dir->srcpath, fdat.cFileName, NULL);
+    WIN32_FIND_DATAW fdat;
+    int ok = FindNextFileW(dir->h, &fdat);
+    if(!ok) {
+        return NULL;
+    }
+    /* utf-16 to uft-8 */
+    char *nameUTF8 = NULL;
+    int len = WideCharToMultiByte(CP_UTF8, 0, fdat.cFileName, -1, NULL, 0, NULL, NULL);
+    if(len > 0) {
+        nameUTF8 = malloc(len);
+        WideCharToMultiByte(CP_UTF8, 0, fdat.cFileName, -1, nameUTF8, len, NULL, NULL);
+    }
+    if(nameUTF8[0] == '.' && (nameUTF8[1] == '\0' || (nameUTF8[1] == '.' && nameUTF8[2] == '\0'))) {
+        dir->name = NULL;
+    }
+    else {
+        dir->name = dupcat(dir->srcpath, nameUTF8, NULL);
+    }
+    free(nameUTF8);
     }
 
     if (dir->name) {
