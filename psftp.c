@@ -637,9 +637,14 @@ int sftp_put_file(char *fname, char *outfname, int recurse, int restart)
     fh = fxp_open_recv(pktin, req);
 
     if (!fh) {
-	close_rfile(file);
-	printf("%s: open for write: %s\n", outfname, fxp_error());
-	return 0;
+        req = fxp_open_send(outfname, SSH_FXF_WRITE | SSH_FXF_CREAT | SSH_FXF_TRUNC, &attrs);
+        pktin = sftp_wait_for_reply(req);
+        fh = fxp_open_recv(pktin, req);
+        if (!fh) {
+            close_rfile(file);
+            printf("%s: open for write: %s\n", outfname, fxp_error());
+            return 0;
+        }
     }
 
     if (restart) {
@@ -1391,7 +1396,7 @@ int sftp_cmd_put(struct sftp_command *cmd)
 }
 int sftp_cmd_mput(struct sftp_command *cmd)
 {
-    return sftp_general_put(cmd, 0, 1);
+    return sftp_general_put(cmd, 1, 1);
 }
 int sftp_cmd_reput(struct sftp_command *cmd)
 {
