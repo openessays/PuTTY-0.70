@@ -3036,6 +3036,11 @@ int psftp_main(int argc, char *argv[])
     int cmdsize = 0;
     char *command = NULL;
 
+    /* show non ascii characters */
+#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);
+#endif
+
     flags = FLAG_STDERR | FLAG_INTERACTIVE
 #ifdef FLAG_SYNCAGENT
 	| FLAG_SYNCAGENT
