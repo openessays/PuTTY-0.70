@@ -798,6 +798,11 @@ SftpWildcardMatcher *sftp_begin_wildcard_matching(char *name)
     return swcm;
 }
 
+static int fxp_name_compare(const void *fxp_name1, const void *fxp_name2)
+{
+    return strcmp(((struct fxp_name *)fxp_name1)->filename, ((struct fxp_name *)fxp_name2)->filename);
+}
+
 char *sftp_wildcard_get_filename(SftpWildcardMatcher *swcm)
 {
     struct fxp_name *name;
@@ -833,6 +838,8 @@ char *sftp_wildcard_get_filename(SftpWildcardMatcher *swcm)
             }
 
 	    swcm->namepos = 0;
+	    /* sort by filename in lexicographic order */
+	    qsort(swcm->names->names, swcm->names->nnames, sizeof(struct fxp_name), fxp_name_compare);
 	}
 
 	assert(swcm->names && swcm->namepos < swcm->names->nnames);
