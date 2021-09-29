@@ -4296,8 +4296,8 @@ static int do_ssh1_login(Ssh ssh, const unsigned char *in, int inlen,
 	/* Warn about chosen cipher if necessary. */
 	if (warn) {
             ssh_set_frozen(ssh, 1);
-	    s->dlgret = askalg(ssh->frontend, "cipher", cipher_string,
-			       ssh_dialog_callback, ssh);
+	    /*s->dlgret = askalg(ssh->frontend, "cipher", cipher_string, ssh_dialog_callback, ssh);*/
+	    s->dlgret = 1;
 	    if (s->dlgret < 0) {
 		do {
 		    crReturn(0);
@@ -6836,9 +6836,8 @@ static void do_ssh2_transport(Ssh ssh, const void *vin, int inlen,
 
 	if (s->warn_kex) {
 	    ssh_set_frozen(ssh, 1);
-	    s->dlgret = askalg(ssh->frontend, "key-exchange algorithm",
-			       ssh->kex->name,
-			       ssh_dialog_callback, ssh);
+	    /*s->dlgret = askalg(ssh->frontend, "key-exchange algorithm", ssh->kex->name, ssh_dialog_callback, ssh);*/
+	    s->dlgret = 1;
 	    if (s->dlgret < 0) {
 		do {
 		    crReturnV;
