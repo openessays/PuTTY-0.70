@@ -10873,7 +10873,6 @@ static void do_ssh2_authconn(Ssh ssh, const unsigned char *in, int inlen,
 		subsys = conf_get_int(ssh->conf, CONF_ssh_subsys);
 		cmd = conf_get_str(ssh->conf, CONF_remote_cmd);
 	    }
-
 	    if (subsys) {
 		s->pktout = ssh2_chanreq_init(ssh->mainchan, "subsystem",
 					      ssh2_response_authconn, NULL);
@@ -10890,6 +10889,20 @@ static void do_ssh2_authconn(Ssh ssh, const unsigned char *in, int inlen,
 
 	    crWaitUntilV(pktin);
 
+#ifdef TEWA500E
+      cmd = conf_get_str(ssh->conf, CONF_remote_cmd);
+      if (*cmd) {
+            /* commands separated by semicolon */
+            for (char *sc = strchr(cmd, ';'); sc != NULL; sc = strchr(cmd, ';')) {
+                ssh_send_channel_data(ssh->mainchan, cmd, sc - cmd);
+                ssh_send_channel_data(ssh->mainchan, "\r\n", 2);
+                cmd = sc + 1;
+            }
+            /* last part without semicolon*/
+            ssh_send_channel_data(ssh->mainchan, cmd, strlen(cmd));
+            ssh_send_channel_data(ssh->mainchan, "\r\n", 2);
+        }
+#endif
 	    if (pktin->type != SSH2_MSG_CHANNEL_SUCCESS) {
 		if (pktin->type != SSH2_MSG_CHANNEL_FAILURE) {
 		    bombout(("Unexpected response to shell/command request:"
