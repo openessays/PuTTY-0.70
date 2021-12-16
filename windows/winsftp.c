@@ -283,7 +283,17 @@ uint64 get_file_posn(WFile *f)
 int file_type(const char *name)
 {
     DWORD attr;
-    attr = GetFileAttributes(name);
+    /* utf-8 to utf-16 */
+    char *nameUTF16 = NULL;
+    int len = MultiByteToWideChar(CP_UTF8, 0, name, -1, NULL, 0);
+    if(len > 0) {
+        nameUTF16 = malloc(len * sizeof(wchar_t));
+        MultiByteToWideChar(CP_UTF8, 0, name, -1, nameUTF16, len);
+    }
+    /* unicode version instead of ANSI version */
+    attr = GetFileAttributesW(nameUTF16);
+    free(nameUTF16);
+
     /* We know of no `weird' files under Windows. */
     if (attr == (DWORD)-1)
 	return FILE_TYPE_NONEXISTENT;
@@ -301,13 +311,22 @@ struct DirHandle {
 DirHandle *open_directory(const char *name)
 {
     HANDLE h;
-    WIN32_FIND_DATA fdat;
+    WIN32_FIND_DATAW fdat;
     char *findfile;
     DirHandle *ret;
 
     /* Enumerate files in dir `foo'. */
     findfile = dupcat(name, "/*", NULL);
-    h = FindFirstFile(findfile, &fdat);
+    /* utf-8 to utf-16 */
+    char *findfileUTF16 = NULL;
+    int len = MultiByteToWideChar(CP_UTF8, 0, findfile, -1, NULL, 0);
+    if(len > 0) {
+        findfileUTF16 = malloc(len * sizeof(wchar_t));
+        MultiByteToWideChar(CP_UTF8, 0, findfile, -1, findfileUTF16, len);
+    }
+    /* unicode version instead of ANSI version */
+    h = FindFirstFileW(findfileUTF16, &fdat);
+    free(findfileUTF16);
     if (h == INVALID_HANDLE_VALUE)
 	return NULL;
     sfree(findfile);
@@ -323,12 +342,22 @@ char *read_filename(DirHandle *dir)
     do {
 
 	if (!dir->name) {
-	    WIN32_FIND_DATA fdat;
-	    int ok = FindNextFile(dir->h, &fdat);
-	    if (!ok)
-		return NULL;
-	    else
-		dir->name = dupstr(fdat.cFileName);
+	    WIN32_FIND_DATAW fdat;
+	    int ok = FindNextFileW(dir->h, &fdat);
+	    if (!ok) {
+	        return NULL;
+	    }
+      else {
+          /* utf-16 to uft-8 */
+          char *nameUTF8 = NULL;
+          int len = WideCharToMultiByte(CP_UTF8, 0, fdat.cFileName, -1, NULL, 0, NULL, NULL);
+          if(len > 0) {
+              nameUTF8 = malloc(len);
+              WideCharToMultiByte(CP_UTF8, 0, fdat.cFileName, -1, nameUTF8, len, NULL, NULL);
+          }
+          dir->name = dupstr(nameUTF8);
+          free(nameUTF8);
+      }
 	}
 
 	assert(dir->name);
@@ -501,7 +530,16 @@ int vet_filename(const char *name)
 
 int create_directory(const char *name)
 {
-    return CreateDirectory(name, NULL) != 0;
+    /* utf-8 to utf-16 */
+    char *nameUTF16 = NULL;
+    int len = MultiByteToWideChar(CP_UTF8, 0, name, -1, NULL, 0);
+    if(len > 0) {
+        nameUTF16 = malloc(len * sizeof(wchar_t));
+        MultiByteToWideChar(CP_UTF8, 0, name, -1, nameUTF16, len);
+    }
+    BOOL result = CreateDirectoryW(nameUTF16, NULL);
+    free(nameUTF16);
+    return result != 0;
 }
 
 char *dir_file_cat(const char *dir, const char *file)
