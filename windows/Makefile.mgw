@@ -122,6 +122,7 @@ RC = C:\gcc\bin\windres.exe
 # You may also need to tell windres where to find include files:
 # RCINC = --include-dir c:\cygwin\include\
 
+# change '-O2' to '-g' and comment out 'LDFLAGS' to build debug version
 CFLAGS = -Wall -O2 -D_WINDOWS -DWIN32S_COMPAT -D_NO_OLDNAMES -DNO_IPV6 -I.././ \
 		-I../charset/ -I../windows/ -I../unix/
 LDFLAGS = -s
