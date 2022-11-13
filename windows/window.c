@@ -243,6 +243,9 @@ char *get_ttymode(void *frontend, const char *mode)
     return term_get_ttymode(term, mode);
 }
 
+/* forward declaration */
+static void close_session(void *ignored_context);
+
 static void start_backend(void)
 {
     const char *error;
@@ -276,7 +279,8 @@ static void start_backend(void)
 		"%.800s\n" "%s", conf_dest(conf), error);
 	MessageBox(NULL, msg, str, MB_ICONERROR | MB_OK);
 	sfree(str);
-	exit(0);
+	close_session(NULL);
+	return;
     }
     window_name = icon_name = NULL;
     title = conf_get_str(conf, CONF_wintitle);

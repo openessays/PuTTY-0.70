@@ -314,7 +314,9 @@ void random_ref(void)
 
 void random_unref(void)
 {
-    assert(random_active > 0);
+    if (random_active < 1) {
+        return;
+    }
     if (random_active == 1) {
         random_save_seed();
         expire_timer_context(&pool);
