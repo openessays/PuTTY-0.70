@@ -985,6 +985,7 @@ void random_destroy_seed(void);
 Backend *backend_from_name(const char *name);
 Backend *backend_from_proto(int proto);
 char *get_remote_username(Conf *conf); /* dynamically allocated */
+char *get_remote_password(Conf *conf); /* dynamically allocated */
 char *save_settings(const char *section, Conf *conf);
 void save_open_settings(void *sesskey, Conf *conf);
 void load_settings(const char *section, Conf *conf);
