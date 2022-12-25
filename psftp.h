@@ -200,4 +200,18 @@ char *dir_file_cat(const char *dir, const char *file);
  */
 char *stripslashes(const char *str, int local);
 
+/*
+ * check whether the filename is a directory or not on remote server.
+ *
+ * Returns TRUE if the filename is a direcotry, FALSE otherwise.
+ */
+int check_is_dir(char *dstfname);
+
+/*
+ * check whether the filename is a regular file or not on remote server.
+ *
+ * Returns TRUE if the filename is a regular file, FALSE otherwise.
+ */
+int check_is_file(char *dstfname);
+
 #endif /* PUTTY_PSFTP_H */

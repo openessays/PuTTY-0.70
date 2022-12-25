@@ -996,9 +996,38 @@ int sftp_cmd_close(struct sftp_command *cmd)
     return 0;
 }
 
+int check_is_file(char *dstfname)
+{
+    struct sftp_packet *pktin;
+    struct sftp_request *req;
+    struct fxp_attrs attrs;
+    int result;
+
+    req = fxp_stat_send(dstfname);
+    pktin = sftp_wait_for_reply(req);
+    result = fxp_stat_recv(pktin, req, &attrs);
 /*
- * List a directory. If no arguments are given, list pwd; otherwise
- * list the directory given in words[1].
+S_IFMT     0170000   bit mask for the file type bit field
+
+S_IFSOCK   0140000   socket
+S_IFLNK    0120000   symbolic link
+S_IFREG    0100000   regular file
+S_IFBLK    0060000   block device
+S_IFDIR    0040000   directory
+S_IFCHR    0020000   character device
+S_IFIFO    0010000   FIFO
+*/
+    if (result &&
+	(attrs.flags & SSH_FILEXFER_ATTR_PERMISSIONS) &&
+	(attrs.permissions & 0120000 || attrs.permissions & 0100000))
+	return TRUE;
+    else
+	return FALSE;
+}
+
+/*
+ * List a directory or file. If no arguments are given, list pwd; otherwise
+ * list the directory or file given in words[1].
  */
 int sftp_cmd_ls(struct sftp_command *cmd)
 {
@@ -1055,7 +1084,19 @@ int sftp_cmd_ls(struct sftp_command *cmd)
 	return 0;
     }
 
-    printf("Listing directory %s\n", cdir);
+    if (check_is_dir(cdir)) {
+        printf("Listing directory %s\n", cdir);
+    } else if (check_is_file(cdir)) {
+        printf("Listing file %s\n", cdir);
+        /* treat file name like wildcard */
+        wildcard = stripslashes(cdir, 0);
+        *(wildcard - 1) = '\0';
+    } else {
+        printf("Listing %s failed\n", cdir);
+        sfree(cdir);
+        sfree(unwcdir);
+        return 0;
+    }
 
     req = fxp_opendir_send(cdir);
     pktin = sftp_wait_for_reply(req);
@@ -1534,7 +1575,7 @@ int sftp_cmd_rm(struct sftp_command *cmd)
     return ret;
 }
 
-static int check_is_dir(char *dstfname)
+int check_is_dir(char *dstfname)
 {
     struct sftp_packet *pktin;
     struct sftp_request *req;
