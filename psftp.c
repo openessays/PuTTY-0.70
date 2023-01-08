@@ -1274,6 +1274,21 @@ int sftp_general_get(struct sftp_command *cmd, int restart, int multiple)
 	origfname = cmd->words[i++];
 	unwcfname = snewn(strlen(origfname)+1, char);
 
+  /* convert backslash to forward slash */
+  for(char *p = origfname; *p != NULL; ++p) {
+      if(*(p+1) != NULL) {
+          char c = *(p+1);
+          /* \*, \?, \[, \], \\ match the single characters *, ?, [, ], \. */
+          /* but '*' and '\' cannot be in filename */
+          if(c == '?' || c == '[' || c == ']') {
+              ++p;
+              continue;
+          }
+      }
+      if(*p == '\\') {
+          *p = '/';
+      }
+  }
 	if (multiple && !wc_unescape(unwcfname, origfname)) {
 	    swcm = sftp_begin_wildcard_matching(origfname);
 	    if (!swcm) {
@@ -1408,6 +1423,12 @@ int sftp_general_put(struct sftp_command *cmd, int restart, int multiple)
 	    else
 		origoutfname = stripslashes(wfname, 1);
 
+	    /* convert backslash to forward slash */
+	    for(char *p = origoutfname; *p != NULL; ++p) {
+	        if(*p == '\\') {
+	            *p = '/';
+	        }
+	    }
 	    outfname = canonify(origoutfname);
 	    if (!outfname) {
 		printf("%s: canonify: %s\n", origoutfname, fxp_error());
